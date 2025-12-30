@@ -1,0 +1,512 @@
+appointments_list = []
+
+import datetime
+
+def add_appointment(date_str, time_str, client_name, service, duration, status, notes):
+    """Adds a new appointment to the global appointments_list."""
+    try:
+        # Convert date and time strings to datetime objects for consistency
+        # In this simplified model, we'll store them as strings as initially specified
+        # for simplicity, but a more robust system would use datetime objects.
+        appointment = {
+            "Date": date_str, # Storing as string 'YYYY-MM-DD'
+            "Time": time_str, # Storing as string 'HH:MM'
+            "Client Name": client_name,
+            "Service": service,
+            "Duration": duration, # in minutes
+            "Status": status,
+            "Notes": notes
+        }
+        appointments_list.append(appointment)
+        print(f"Appointment for {client_name} on {date_str} at {time_str} added successfully.")
+    except Exception as e:
+        print(f"Error adding appointment: {e}")
+
+
+# Print the updated appointments list to verify
+for appt in appointments_list:
+    print(appt)
+
+import datetime
+
+def add_appointment(date_str, time_str, client_name, service, duration, status, notes):
+    """Adds a new appointment to the global appointments_list."""
+    try:
+        # Convert date and time strings to datetime objects for consistency
+        # In this simplified model, we'll store them as strings as initially specified
+        # for simplicity, but a more robust system would use datetime objects.
+        appointment = {
+            "Date": date_str, # Storing as string 'YYYY-MM-DD'
+            "Time": time_str, # Storing as string 'HH:MM'
+            "Client Name": client_name,
+            "Service": service,
+            "Duration": duration, # in minutes
+            "Status": status,
+            "Notes": notes
+        }
+        appointments_list.append(appointment)
+        print(f"Appointment for {client_name} on {date_str} at {time_str} added successfully.")
+    except Exception as e:
+        print(f"Error adding appointment: {e}")
+
+# Print the updated appointments list to verify
+print("\n--- Current Appointments List ---")
+for appt in appointments_list:
+    print(appt)
+
+def view_all_appointments():
+    """Displays all appointments in the appointments_list."""
+    print("\n--- All Appointments ---")
+    if not appointments_list:
+        print("No appointments found.")
+        return
+    for i, appt in enumerate(appointments_list):
+        print(f"Appointment {i+1}:")
+        for key, value in appt.items():
+            print(f"  {key}: {value}")
+
+def view_appointments_by_date(date_str):
+    """Displays appointments scheduled for a specific date."""
+    print(f"\n--- Appointments for Date: {date_str} ---")
+    found = False
+    for i, appt in enumerate(appointments_list):
+        if appt.get("Date") == date_str:
+            found = True
+            print(f"Appointment {i+1}:")
+            for key, value in appt.items():
+                print(f"  {key}: {value}")
+    if not found:
+        print(f"No appointments found for {date_str}.")
+
+def view_appointments_by_client(client_name):
+    """Displays appointments for a specific client."""
+    print(f"\n--- Appointments for Client: {client_name} ---")
+    found = False
+    for i, appt in enumerate(appointments_list):
+        if appt.get("Client Name") == client_name:
+            found = True
+            print(f"Appointment {i+1}:")
+            for key, value in appt.items():
+                print(f"  {key}: {value}")
+    if not found:
+        print(f"No appointments found for client: {client_name}.")
+
+def update_appointment(index, **kwargs):
+    """Updates an existing appointment in the appointments_list by index.
+    Allows partial updates by specifying only the fields to change.
+    """
+    if not (0 <= index < len(appointments_list)):
+        print(f"No appointment found to update.")
+        return
+
+    appointment_to_update = appointments_list[index]
+    original_details = appointment_to_update.copy()
+    
+    print(f"\n--- Updating Appointment {index+1} (Client: {appointment_to_update.get('Client Name')}) ---")
+    
+    updated = False
+    for key, value in kwargs.items():
+        if key in appointment_to_update:
+            if appointment_to_update[key] != value:
+                print(f"  Updating '{key}': '{appointment_to_update[key]}' -> '{value}'")
+                appointment_to_update[key] = value
+                updated = True
+        else:
+            print(f"  Warning: Field '{key}' not recognized and will not be updated.")
+
+    if updated:
+        print(f"Appointment {index+1} updated successfully.")
+    else:
+        print(f"No changes were made to Appointment {index+1}.")
+
+
+# 1. Update the status of the first appointment (index 0)
+update_appointment(0, Status="Completed")
+
+# Print all appointments again to verify updates
+print("\n--- Appointments After Updates ---")
+view_all_appointments()
+
+def delete_appointment(index):
+    """Deletes an appointment from the appointments_list by index."""
+    if not (0 <= index < len(appointments_list)):
+        print(f"\nNo appointment found to delete.")
+        return
+
+    deleted_appointment = appointments_list.pop(index)
+    client_name = deleted_appointment.get("Client Name", "Unknown Client")
+    date = deleted_appointment.get("Date", "Unknown Date")
+    print(f"\nSuccessfully deleted appointment for {client_name} on {date} (index {index}).")
+
+# --- Example Usage for Deleting Appointments ---
+print("\n--- Demonstrating Appointment Deletions ---")
+
+# Display current appointments before deletion
+print("Appointments before deletion:")
+view_all_appointments()
+
+# 1. Delete an existing appointment (e.g., the first one, index 0)
+delete_appointment(0)
+
+# 4. Display the updated list of appointments to verify deletions
+print("\n--- Appointments After Deletions ---")
+view_all_appointments()
+
+import ipywidgets as widgets
+from IPython.display import display, clear_output, HTML
+import datetime
+
+# Output widget for displaying results
+output_area = widgets.Output()
+
+# Get current date for default value
+current_date_str = datetime.date.today().strftime('%Y-%m-%d')
+
+# --- Add Appointment Widgets ---
+add_date = widgets.DatePicker(description='Date:', value=datetime.date.today())
+add_time = widgets.Dropdown(description='Time:', options=time_slots, value=time_slots[0] if time_slots else None)
+add_client_name = widgets.Text(description='Client Name:')
+add_service = widgets.Text(description='Service:')
+add_duration = widgets.IntText(description='Duration (min):', value=15, disabled=True)
+add_status = widgets.Text(description='Status:', value='Scheduled')
+add_notes = widgets.Textarea(description='Notes:')
+add_button = widgets.Button(description='Add Appointment')
+
+# --- View Appointment Widgets ---
+view_all_button = widgets.Button(description='View All Appointments')
+view_by_date_input = widgets.Text(description='View by Date (YYYY-MM-DD):')
+view_by_date_button = widgets.Button(description='View by Date')
+view_by_client_input = widgets.Text(description='View by Client Name:')
+view_by_client_button = widgets.Button(description='View by Client')
+
+# --- Update Appointment Widgets ---
+update_index = widgets.IntText(description='Index to Update:', min=0)
+update_date = widgets.Text(description='New Date (opt):')
+update_time = widgets.Text(description='New Time (opt):')
+update_client_name = widgets.Text(description='New Client Name (opt):')
+update_service = widgets.Text(description='New Service (opt):')
+update_duration = widgets.IntText(description='New Duration (opt):', min=0, value=15, disabled=True)
+update_status = widgets.Text(description='New Status (opt):')
+update_notes = widgets.Textarea(description='New Notes (opt):')
+update_button = widgets.Button(description='Update Appointment')
+
+# --- Delete Appointment Widgets ---
+delete_index = widgets.IntText(description='Index to Delete:', min=0)
+delete_button = widgets.Button(description='Delete Appointment')
+
+# --- Layout the widgets ---
+add_widgets = widgets.VBox([
+    widgets.HTML('<h3>Add New Appointment</h3>'),
+    add_date, add_time, add_client_name, add_service, add_duration, add_status, add_notes, add_button
+])
+
+view_widgets = widgets.VBox([
+    widgets.HTML('<h3>View Appointments</h3>'),
+    view_all_button,
+    widgets.HBox([view_by_date_input, view_by_date_button]),
+    widgets.HBox([view_by_client_input, view_by_client_button])
+])
+
+update_widgets = widgets.VBox([
+    widgets.HTML('<h3>Update Appointment</h3>'),
+    update_index, update_date, update_time, update_client_name, update_service,
+    update_duration, update_status, update_notes, update_button
+])
+
+delete_widgets = widgets.VBox([
+    widgets.HTML('<h3>Delete Appointment</h3>'),
+    delete_index, delete_button
+])
+
+# Display the UI elements
+ui = widgets.VBox([add_widgets, view_widgets, update_widgets, delete_widgets, output_area])
+
+def on_add_button_clicked(button):
+    with output_area:
+        clear_output()
+        date_obj = add_date.value # date_obj is now a datetime.date object
+        time_str = add_time.value
+        client_name = add_client_name.value
+        service = add_service.value
+        duration = add_duration.value
+        status = add_status.value
+        notes = add_notes.value
+
+        if duration > 30:
+            print("Error: Duration cannot be more than 30 minutes.")
+            return
+
+        # Convert date_obj to string for storage
+        date_str = date_obj.strftime('%Y-%m-%d')
+
+        try:
+            # Combine date and time strings into a datetime object for validation
+            appointment_datetime = datetime.datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M')
+            if appointment_datetime < datetime.datetime.now():
+                print("Error: Cannot add an appointment in the past.")
+                return
+        except ValueError:
+            print("Error: Invalid date or time format. Please use YYYY-MM-DD and HH:MM.")
+            return
+
+        add_appointment(date_str, time_str, client_name, service, duration, status, notes)
+        # Clear input fields after adding
+        add_date.value = datetime.date.today() # Reset to current date object
+        add_time.value = time_slots[0] if time_slots else None # Reset to default time
+        add_client_name.value = ''
+        add_service.value = ''
+        add_duration.value = 15 # Reset to default
+        add_status.value = 'Scheduled' # Reset to default
+        add_notes.value = ''
+
+# Attach the callback function to the add_button's on_click event
+add_button.on_click(on_add_button_clicked)
+
+print("Add Appointment button callback defined and attached.")
+
+def on_view_all_button_clicked(button):
+    with output_area:
+        clear_output()
+        view_all_appointments()
+
+def on_view_by_date_button_clicked(button):
+    with output_area:
+        clear_output()
+        date_str = view_by_date_input.value
+        view_appointments_by_date(date_str)
+
+def on_view_by_client_button_clicked(button):
+    with output_area:
+        clear_output()
+        client_name = view_by_client_input.value
+        view_appointments_by_client(client_name)
+
+# Attach callbacks to buttons
+view_all_button.on_click(on_view_all_button_clicked)
+view_by_date_button.on_click(on_view_by_date_button_clicked)
+view_by_client_button.on_click(on_view_by_client_button_clicked)
+
+print("View Appointment button callbacks defined and attached.")
+
+def on_update_button_clicked(button):
+    with output_area:
+        clear_output()
+        try:
+            index = update_index.value
+            kwargs = {}
+
+            if update_date.value: kwargs["Date"] = update_date.value
+            if update_time.value: kwargs["Time"] = update_time.value
+            if update_client_name.value: kwargs["Client Name"] = update_client_name.value
+            if update_service.value: kwargs["Service"] = update_service.value
+            # Check if duration is explicitly set to a non-zero value, or if it's 0 and not the default (optional logic)
+            if update_duration.value != 0: kwargs["Duration"] = update_duration.value # Assuming 0 is a default/empty state for update
+            if update_status.value: kwargs["Status"] = update_status.value
+            if update_notes.value: kwargs["Notes"] = update_notes.value
+
+            if not kwargs:
+                print("No update fields provided. Please enter values to update.")
+                return
+
+            update_appointment(index, **kwargs)
+
+            # Clear input fields after updating
+            update_index.value = 0 # Reset to default
+            update_date.value = ''
+            update_time.value = ''
+            update_client_name.value = ''
+            update_service.value = ''
+            update_duration.value = 0 # Reset to default
+            update_status.value = ''
+            update_notes.value = ''
+
+        except Exception as e:
+            print(f"Error updating appointment: {e}")
+
+# Attach the callback function to the update_button's on_click event
+update_button.on_click(on_update_button_clicked)
+
+print("Update Appointment button callback defined and attached.")
+
+def on_delete_button_clicked(button):
+    with output_area:
+        clear_output()
+        try:
+            index = delete_index.value
+            delete_appointment(index)
+            # Clear input field after deletion
+            delete_index.value = 0 # Reset to default
+        except Exception as e:
+            print(f"Error deleting appointment: {e}")
+
+# Attach the callback function to the delete_button's on_click event
+delete_button.on_click(on_delete_button_clicked)
+
+print("Delete Appointment button callback defined and attached.")
+
+import datetime
+
+def generate_time_slots(start_time_str, end_time_str, interval_minutes):
+    """Generates a list of time slots at specified intervals."""
+    dummy_date = datetime.date(2000, 1, 1)
+    start_time = datetime.datetime.strptime(start_time_str, '%H:%M').time()
+    end_time = datetime.datetime.strptime(end_time_str, '%H:%M').time()
+
+    current_datetime = datetime.datetime.combine(dummy_date, start_time)
+    end_datetime = datetime.datetime.combine(dummy_date, end_time)
+
+    slots = []
+    while current_datetime <= end_datetime:
+        slots.append(current_datetime.strftime('%H:%M'))
+        current_datetime += datetime.timedelta(minutes=interval_minutes)
+    return slots
+
+# Generate time slots from 6:30 PM (18:30) to 8:15 PM (20:15) at 15-minute intervals
+time_slots = generate_time_slots('18:30', '20:15', 15)
+
+print("Generated time slots:")
+print(time_slots)
+import ipywidgets as widgets
+from IPython.display import display, clear_output, HTML
+import datetime
+
+# Output widget for displaying results
+output_area = widgets.Output()
+
+# Get current date for default value
+current_date_str = datetime.date.today().strftime('%Y-%m-%d')
+
+# --- Add Appointment Widgets ---
+add_date = widgets.Text(description='Date (YYYY-MM-DD):', value=current_date_str) # Set default to current date
+# Modified add_time to be a Dropdown with generated time_slots
+add_time = widgets.Dropdown(description='Time:', options=time_slots, value=time_slots[0] if time_slots else None)
+add_client_name = widgets.Text(description='Client Name:')
+add_service = widgets.Text(description='Service:')
+# Modified add_duration to enforce a fixed 15-minute duration
+add_duration = widgets.IntText(description='Duration (min):', value=15, disabled=True)
+add_status = widgets.Text(description='Status:', value='Scheduled')
+add_notes = widgets.Textarea(description='Notes:')
+add_button = widgets.Button(description='Add Appointment')
+
+# --- View Appointment Widgets ---
+view_all_button = widgets.Button(description='View All Appointments')
+view_by_date_input = widgets.Text(description='View by Date (YYYY-MM-DD):')
+view_by_date_button = widgets.Button(description='View by Date')
+view_by_client_input = widgets.Text(description='View by Client Name:')
+view_by_client_button = widgets.Button(description='View by Client')
+
+# --- Update Appointment Widgets ---
+update_index = widgets.IntText(description='Index to Update:', min=0)
+update_date = widgets.Text(description='New Date (opt):')
+update_time = widgets.Text(description='New Time (opt):')
+update_client_name = widgets.Text(description='New Client Name (opt):')
+update_service = widgets.Text(description='New Service (opt):')
+# Modified update_duration to align with the new fixed duration of 15 min
+update_duration = widgets.IntText(description='New Duration (opt):', min=0, value=15, disabled=True)
+update_status = widgets.Text(description='New Status (opt):')
+update_notes = widgets.Textarea(description='New Notes (opt):')
+update_button = widgets.Button(description='Update Appointment')
+
+# --- Delete Appointment Widgets ---
+delete_index = widgets.IntText(description='Index to Delete:', min=0)
+delete_button = widgets.Button(description='Delete Appointment')
+
+# --- Layout the widgets ---
+add_widgets = widgets.VBox([
+    widgets.HTML('<h3>Add New Appointment</h3>'),
+    add_date, add_time, add_client_name, add_service, add_duration, add_status, add_notes, add_button
+])
+
+view_widgets = widgets.VBox([
+    widgets.HTML('<h3>View Appointments</h3>'),
+    view_all_button,
+    widgets.HBox([view_by_date_input, view_by_date_button]),
+    widgets.HBox([view_by_client_input, view_by_client_button])
+])
+
+update_widgets = widgets.VBox([
+    widgets.HTML('<h3>Update Appointment</h3>'),
+    update_index, update_date, update_time, update_client_name, update_service,
+    update_duration, update_status, update_notes, update_button
+])
+
+delete_widgets = widgets.VBox([
+    widgets.HTML('<h3>Delete Appointment</h3>'),
+    delete_index, delete_button
+])
+
+# Display the UI elements
+ui = widgets.VBox([add_widgets, view_widgets, update_widgets, delete_widgets, output_area])
+
+import ipywidgets as widgets
+from IPython.display import display, clear_output, HTML
+import datetime
+
+# Output widget for displaying results
+output_area = widgets.Output()
+
+# Get current date for default value
+current_date_str = datetime.date.today().strftime('%Y-%m-%d')
+
+# --- Add Appointment Widgets ---
+# Modified add_date to be a DatePicker
+add_date = widgets.DatePicker(description='Date:', value=datetime.date.today())
+add_time = widgets.Dropdown(description='Time:', options=time_slots, value=time_slots[0] if time_slots else None)
+add_client_name = widgets.Text(description='Client Name:')
+add_service = widgets.Text(description='Service:')
+add_duration = widgets.IntText(description='Duration (min):', value=15, disabled=True)
+add_status = widgets.Text(description='Status:', value='Scheduled')
+add_notes = widgets.Textarea(description='Notes:')
+add_button = widgets.Button(description='Add Appointment')
+
+# --- View Appointment Widgets ---
+view_all_button = widgets.Button(description='View All Appointments')
+view_by_date_input = widgets.Text(description='View by Date (YYYY-MM-DD):')
+view_by_date_button = widgets.Button(description='View by Date')
+view_by_client_input = widgets.Text(description='View by Client Name:')
+view_by_client_button = widgets.Button(description='View by Client')
+
+# --- Update Appointment Widgets ---
+update_index = widgets.IntText(description='Index to Update:', min=0)
+update_date = widgets.Text(description='New Date (opt):')
+update_time = widgets.Text(description='New Time (opt):')
+update_client_name = widgets.Text(description='New Client Name (opt):')
+update_service = widgets.Text(description='New Service (opt):')
+update_duration = widgets.IntText(description='New Duration (opt):', min=0, value=15, disabled=True)
+update_status = widgets.Text(description='New Status (opt):')
+update_notes = widgets.Textarea(description='New Notes (opt):')
+update_button = widgets.Button(description='Update Appointment')
+
+# --- Delete Appointment Widgets ---
+delete_index = widgets.IntText(description='Index to Delete:', min=0)
+delete_button = widgets.Button(description='Delete Appointment')
+
+# --- Layout the widgets ---
+add_widgets = widgets.VBox([
+    widgets.HTML('<h3>Add New Appointment</h3>'),
+    add_date, add_time, add_client_name, add_service, add_duration, add_status, add_notes, add_button
+])
+
+view_widgets = widgets.VBox([
+    widgets.HTML('<h3>View Appointments</h3>'),
+    view_all_button,
+    widgets.HBox([view_by_date_input, view_by_date_button]),
+    widgets.HBox([view_by_client_input, view_by_client_button])
+])
+
+update_widgets = widgets.VBox([
+    widgets.HTML('<h3>Update Appointment</h3>'),
+    update_index, update_date, update_time, update_client_name, update_service,
+    update_duration, update_status, update_notes, update_button
+])
+
+delete_widgets = widgets.VBox([
+    widgets.HTML('<h3>Delete Appointment</h3>'),
+    delete_index, delete_button
+])
+
+# Display the UI elements
+ui = widgets.VBox([add_widgets, view_widgets, update_widgets, delete_widgets, output_area])
+display(ui)
+
+print("UI updated: add_date is now a DatePicker, and the UI is re-displayed.")
