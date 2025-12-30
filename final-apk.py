@@ -1,3 +1,4 @@
+import streamlit as st
 appointments_list = []
 
 import datetime
