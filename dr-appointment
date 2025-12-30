@@ -1,0 +1,579 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar as CalendarIcon, 
+  Clock, 
+  User, 
+  Plus, 
+  X, 
+  CheckCircle, 
+  List,
+  MapPin,
+  Phone,
+  Loader2,
+  Trash2
+} from 'lucide-react';
+
+// --- Firebase Imports ---
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken,
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  doc 
+} from 'firebase/firestore';
+
+// --- Firebase Initialization ---
+const firebaseConfig = JSON.parse(__firebase_config);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+// --- Utility Functions ---
+
+const getDaysInMonth = (year, month) => {
+  return new Date(year, month + 1, 0).getDate();
+};
+
+const getFirstDayOfMonth = (year, month) => {
+  return new Date(year, month, 1).getDay();
+};
+
+const formatDate = (date) => {
+  return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+const formatShortDate = (date) => {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const generateTimeSlots = () => {
+  const slots = [];
+  for (let i = 9; i <= 17; i++) {
+    slots.push(`${i.toString().padStart(2, '0')}:00`);
+    slots.push(`${i.toString().padStart(2, '0')}:30`);
+  }
+  return slots;
+};
+
+const timeSlots = generateTimeSlots();
+
+// --- Components ---
+
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="font-semibold text-gray-800 text-lg">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 hover:bg-gray-200 p-1 rounded-full transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Application ---
+
+export default function App() {
+  // Auth & Data State
+  const [user, setUser] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // UI State
+  const [view, setView] = useState('calendar'); // 'calendar' or 'list'
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // Modal & Form States
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [selectedTime, setSelectedTime] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    title: '',
+    clientName: '',
+    phone: '',
+    notes: '',
+    type: 'General'
+  });
+  const [notification, setNotification] = useState(null);
+
+  // --- Firebase Integration ---
+
+  // 1. Initialize Auth
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+      }
+    };
+    initAuth();
+    
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Fetch Data (Real-time listener)
+  useEffect(() => {
+    if (!user) return;
+
+    // Path: /artifacts/{appId}/users/{userId}/appointments
+    const collectionRef = collection(db, 'artifacts', appId, 'users', user.uid, 'appointments');
+
+    const unsubscribe = onSnapshot(collectionRef, (snapshot) => {
+      const fetchedAppointments = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAppointments(fetchedAppointments);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Data fetch error:", error);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // --- Logic ---
+
+  const daysInMonth = getDaysInMonth(currentDate.getFullYear(), currentDate.getMonth());
+  const firstDay = getFirstDayOfMonth(currentDate.getFullYear(), currentDate.getMonth());
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+  const handlePrevMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const handleDateClick = (day) => {
+    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    setSelectedDate(newDate);
+    setSelectedTime(null);
+  };
+
+  const isSameDay = (d1, d2) => {
+    return d1.getDate() === d2.getDate() && 
+           d1.getMonth() === d2.getMonth() && 
+           d1.getFullYear() === d2.getFullYear();
+  };
+
+  const getAppointmentsForDate = (date) => {
+    const dateString = date.toDateString();
+    return appointments.filter(apt => apt.date === dateString);
+  };
+
+  const handleTimeSelect = (time) => {
+    const taken = getAppointmentsForDate(selectedDate).some(apt => apt.time === time);
+    if (!taken) {
+      setSelectedTime(time);
+      setIsBookingOpen(true);
+    }
+  };
+
+  const handleDelete = async (aptId) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'appointments', aptId));
+      setNotification("Appointment cancelled.");
+      setTimeout(() => setNotification(null), 3000);
+    } catch (e) {
+      console.error("Delete error", e);
+      setNotification("Error cancelling appointment.");
+    }
+  };
+
+  const handleBookingSubmit = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    setIsSubmitting(true);
+
+    const newAppointment = {
+      date: selectedDate.toDateString(),
+      isoDate: selectedDate.toISOString(), // Helpful for sorting
+      time: selectedTime,
+      ...bookingForm,
+      status: 'confirmed',
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'appointments'), newAppointment);
+      
+      setIsBookingOpen(false);
+      setBookingForm({ title: '', clientName: '', phone: '', notes: '', type: 'General' });
+      setSelectedTime(null);
+      setNotification("Appointment booked successfully!");
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error("Booking error:", error);
+      setNotification("Failed to book appointment.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // --- Render ---
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 text-indigo-600">
+        <Loader2 className="w-10 h-10 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
+      {/* --- Notification Toast --- */}
+      {notification && (
+        <div className="fixed top-4 right-4 bg-gray-900 text-white px-6 py-3 rounded-lg shadow-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 z-50">
+          <CheckCircle size={20} className="text-green-400" />
+          <span className="font-medium">{notification}</span>
+        </div>
+      )}
+
+      {/* --- Header --- */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-indigo-600">
+            <CalendarIcon className="w-6 h-6" />
+            <h1 className="text-xl font-bold tracking-tight text-gray-900">AppointMate <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full ml-2">Cloud Synced</span></h1>
+          </div>
+          <div className="flex bg-gray-100 p-1 rounded-lg">
+            <button 
+              onClick={() => setView('calendar')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'calendar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Calendar
+            </button>
+            <button 
+              onClick={() => setView('list')}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Upcoming
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        
+        {view === 'calendar' ? (
+          <div className="flex flex-col lg:flex-row gap-8">
+            
+            {/* --- Left Column: Calendar Grid --- */}
+            <div className="lg:w-2/3">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-6 flex items-center justify-between border-b border-gray-100">
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  </h2>
+                  <div className="flex gap-2">
+                    <button onClick={handlePrevMonth} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
+                      <ChevronLeft size={20} />
+                    </button>
+                    <button onClick={handleNextMonth} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600">
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-7 mb-4">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                      <div key={day} className="text-center text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-2">
+                    {Array(firstDay).fill(null).map((_, i) => (
+                      <div key={`empty-${i}`} className="h-24 sm:h-32" />
+                    ))}
+                    {Array(daysInMonth).fill(null).map((_, i) => {
+                      const day = i + 1;
+                      const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                      const isSelected = isSameDay(date, selectedDate);
+                      const isToday = isSameDay(date, new Date());
+                      const dayAppointments = getAppointmentsForDate(date);
+                      const hasAppointments = dayAppointments.length > 0;
+
+                      return (
+                        <div 
+                          key={day}
+                          onClick={() => handleDateClick(day)}
+                          className={`
+                            h-24 sm:h-32 border rounded-xl p-2 cursor-pointer transition-all hover:shadow-md flex flex-col justify-between
+                            ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-500 ring-opacity-20 bg-indigo-50/30' : 'border-gray-100 hover:border-indigo-200 bg-white'}
+                          `}
+                        >
+                          <div className="flex justify-between items-start">
+                            <span className={`
+                              w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium
+                              ${isToday ? 'bg-indigo-600 text-white' : 'text-gray-700'}
+                            `}>
+                              {day}
+                            </span>
+                            {hasAppointments && (
+                              <span className="w-2 h-2 rounded-full bg-indigo-500 block sm:hidden"></span>
+                            )}
+                          </div>
+                          
+                          <div className="hidden sm:flex flex-col gap-1 mt-1 overflow-hidden">
+                            {dayAppointments.slice(0, 2).map((apt, idx) => (
+                              <div key={idx} className="text-[10px] truncate bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-md font-medium">
+                                {apt.time}
+                              </div>
+                            ))}
+                            {dayAppointments.length > 2 && (
+                              <div className="text-[10px] text-gray-400 pl-1">+ {dayAppointments.length - 2} more</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* --- Right Column: Day Details & Slots --- */}
+            <div className="lg:w-1/3 flex flex-col gap-6">
+              
+              {/* Selected Day Header */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{formatShortDate(selectedDate)}</h3>
+                    <p className="text-sm text-gray-500">{selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600">
+                    <Clock size={20} />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Available Slots</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {timeSlots.map(time => {
+                      const isTaken = getAppointmentsForDate(selectedDate).some(apt => apt.time === time);
+                      return (
+                        <button
+                          key={time}
+                          disabled={isTaken}
+                          onClick={() => handleTimeSelect(time)}
+                          className={`
+                            py-2 px-1 text-sm rounded-lg font-medium transition-all
+                            ${isTaken 
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed decoration-slice' 
+                              : 'bg-white border border-gray-200 text-gray-700 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            }
+                          `}
+                        >
+                          {time}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Day's Agenda */}
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex-1">
+                 <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Agenda</h4>
+                 {getAppointmentsForDate(selectedDate).length === 0 ? (
+                   <div className="text-center py-8 text-gray-400">
+                     <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                       <CalendarIcon size={20} className="opacity-50" />
+                     </div>
+                     <p className="text-sm">No appointments scheduled</p>
+                   </div>
+                 ) : (
+                   <div className="space-y-3">
+                     {getAppointmentsForDate(selectedDate)
+                       .sort((a, b) => a.time.localeCompare(b.time))
+                       .map(apt => (
+                       <div key={apt.id} className="flex gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100 group hover:border-indigo-200 transition-colors relative">
+                         <div className="flex flex-col items-center justify-center w-12 bg-white rounded-lg shadow-sm text-xs font-bold text-gray-700 h-12 border border-gray-100">
+                           <span>{apt.time.split(':')[0]}</span>
+                           <span className="text-gray-400 font-normal">{apt.time.split(':')[1]}</span>
+                         </div>
+                         <div className="flex-1 min-w-0">
+                           <h5 className="font-semibold text-gray-900 truncate">{apt.title}</h5>
+                           <p className="text-xs text-gray-500 truncate flex items-center gap-1">
+                             <User size={10} /> {apt.clientName}
+                           </p>
+                         </div>
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); handleDelete(apt.id); }}
+                           className="absolute top-2 right-2 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                         >
+                           <Trash2 size={14} />
+                         </button>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          // --- List View ---
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px]">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">All Upcoming Appointments</h2>
+              <div className="text-sm text-gray-500">{appointments.length} Total</div>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {appointments
+                .sort((a, b) => new Date(a.date) - new Date(b.date))
+                .map((apt) => (
+                <div key={apt.id} className="p-6 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex flex-col items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold uppercase">{new Date(apt.date).toLocaleDateString('en-US', { month: 'short' })}</span>
+                      <span className="text-xl font-bold">{new Date(apt.date).getDate()}</span>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-900">{apt.title}</h3>
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                        <span className="flex items-center gap-1"><Clock size={14} /> {apt.time}</span>
+                        <span className="flex items-center gap-1"><User size={14} /> {apt.clientName}</span>
+                      </div>
+                      <div className="mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {apt.type}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button className="text-gray-400 hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 transition-colors">
+                      <Phone size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(apt.id)}
+                      className="text-gray-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {appointments.length === 0 && (
+                <div className="p-12 text-center text-gray-400">
+                  <p>No upcoming appointments found.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* --- Booking Modal --- */}
+      <Modal 
+        isOpen={isBookingOpen} 
+        onClose={() => setIsBookingOpen(false)}
+        title="New Appointment"
+      >
+        <form onSubmit={handleBookingSubmit} className="space-y-4">
+          <div className="bg-indigo-50 p-4 rounded-xl flex items-center justify-between mb-6">
+            <div>
+              <p className="text-xs text-indigo-600 font-bold uppercase tracking-wide">Date & Time</p>
+              <p className="text-indigo-900 font-semibold">{formatDate(selectedDate)}</p>
+            </div>
+            <div className="bg-white px-3 py-1 rounded-lg shadow-sm text-indigo-600 font-bold">
+              {selectedTime}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">Appointment Title</label>
+            <input 
+              required
+              type="text" 
+              placeholder="e.g. Dental Checkup, Initial Consultation"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+              value={bookingForm.title}
+              onChange={(e) => setBookingForm({...bookingForm, title: e.target.value})}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Client Name</label>
+              <input 
+                required
+                type="text" 
+                placeholder="John Doe"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                value={bookingForm.clientName}
+                onChange={(e) => setBookingForm({...bookingForm, clientName: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Phone</label>
+              <input 
+                type="tel" 
+                placeholder="(555) 000-0000"
+                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                value={bookingForm.phone}
+                onChange={(e) => setBookingForm({...bookingForm, phone: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">Type</label>
+            <select 
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+              value={bookingForm.type}
+              onChange={(e) => setBookingForm({...bookingForm, type: e.target.value})}
+            >
+              <option>General</option>
+              <option>Medical</option>
+              <option>Business</option>
+              <option>Personal</option>
+            </select>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all mt-4 flex items-center justify-center gap-2"
+          >
+            {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : 'Confirm Booking'}
+          </button>
+        </form>
+      </Modal>
+
+    </div>
+  );
+}
